@@ -2,12 +2,16 @@
 
 <h1>Decomposing Midjourney</h1>
 
-<h2>Begin with <a href="https://xkcd.com/936/">four random words</a>: shift subsider fusillade vouch</h2><p>
+  Analyzing which elements influence midjourney generations by decomposing prompts word by word.
+  
+<h2>Begin with <a href="https://xkcd.com/936/">four random words</a>. 
+  <p>"shift subsider fusillade vouch"</h2><p>
 <img src="/20220909/1_shift_subsider_fusillade_vouch.png" width="512" height="512"><p>
 <img src="/20220909/2_shift_subsider_fusillade_vouch.png" width="512" height="512"><p>
 <img src="/20220909/3_shift_subsider_fusillade_vouch.png" width="512" height="512"><p>
 <p><p>
-<h2>Subsets</h2>
+  <h2>Subsets</h2>
+  Deconstruct into subsets to identify common and unique elements
 <h3>subsider fusillade vouch</h3><p>
 <img src="/20220909/234.png"><p>
 <h3>shift fusillade vouch</h3><p>
@@ -39,5 +43,8 @@
 <h3>vouch</h3><p>
 <img src="/20220909/4.png"><p>
 
-
+<h3>Conclusion</h3><p>
+  Some patterns emerge. Fusillade is associated with more violent imagery. Vouch seems to be associated with a young woman. Red and a grayish-blue are dominant colors here, but it's not entirely clear where they come from since they show up across the subsets (perhaps fusillade most strongly, which makes some sense--maybe there's cross pollination from recent generations?). The machine seems to associate some of these random word combos with album titles ("fusillade vouch"), placing stylized words over art reminiscent of an album. I'm a little amazed midjourney wrote these words as well as it did, it generally struggles with text.<p>
+    This type of decompositional analysis will likely have mixed results--some obivous results, and then a wall of incomprehensibility where it's difficult to deconstruct further. Elements with clear semantic implications will have an impact on the image in expected ways. Abstract words or word combinations will unearth hallucinations with an alien consistency that are hard to further analyze.<p>
+<h3>Further research</h3>Examination of a few hundred more examples may reveal other subtle trends. This research would be easy to automate for generation, albeit slow, but human anaylsis (searching for common elements) would be difficult to reliably scale, since it's not obvious what to look for. Mechanical turk asking reviewers to tag images with elements, moods, colors, or styles would generate a dataset where you could then train an AI to analyse AI generated images to look for additional associations at scale.
 </body>
