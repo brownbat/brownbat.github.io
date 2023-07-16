@@ -2,7 +2,7 @@
 
 <h1>Decomposing Midjourney</h1>
 
-  Analyzing which elements influence midjourney generations by decomposing prompts word by word.
+  Analyzing which elements influence midjourney generations by decomposing prompts word by word. This is not a thorough investigation, just a quick toy test that might inspire future work.
   
 <h2>Begin with <a href="https://xkcd.com/936/">four random words</a>. 
   <p>"shift subsider fusillade vouch"</h2><p>
@@ -44,7 +44,35 @@
 <img src="/20220909/4.png"><p>
 
 <h3>Conclusion</h3><p>
-  Some patterns emerge. Fusillade is associated with more violent imagery. Vouch seems to be associated with a young woman. Red and a grayish-blue are dominant colors here, but it's not entirely clear where they come from since they show up across the subsets (perhaps fusillade most strongly, which makes some sense--maybe there's cross pollination from recent generations?). The machine seems to associate some of these random word combos with album titles ("fusillade vouch"), placing stylized words over art reminiscent of an album. I'm a little amazed midjourney wrote these words as well as it did, it generally struggles with text.<p>
+  Some initial patterns emerge. Fusillade is associated with more violent imagery. Vouch seems to be associated with a young woman. Red and a grayish-blue are dominant colors here, but it's not entirely clear where they come from since they show up across the subsets (perhaps fusillade most strongly, which makes some sense--maybe there's cross pollination from recent generations?). The machine seems to associate some of these random word combos with album titles ("fusillade vouch"), placing stylized words over art reminiscent of an album. I'm a little amazed midjourney wrote these words as well as it did, it generally struggles with text.<p>
     This type of decompositional analysis will likely have mixed results--some obivous results, and then a wall of incomprehensibility where it's difficult to deconstruct further. Elements with clear semantic implications will have an impact on the image in expected ways. Abstract words or word combinations will unearth hallucinations with an alien consistency that are hard to further analyze.<p>
 <h3>Further research</h3>Examination of a few hundred more examples may reveal other subtle trends. This research would be easy to automate for generation, albeit slow, but human anaylsis (searching for common elements) would be difficult to reliably scale, since it's not obvious what to look for. Mechanical turk asking reviewers to tag images with elements, moods, colors, or styles would generate a dataset where you could then train an AI to analyse AI generated images to look for additional associations at scale.
+<p>Generate a grid of the most common 100 nouns and 100 adjectives, or noun-verb, or adverb-verb pairs. Look for patterns, or areas with greatest issues.
+<h3>Building imagen test sets.<h3>
+    ESY <a href="https://twitter.com/ESYudkowsky/status/1679561414187581441">wrote</a>, "I have tried, on every imagegen since DALL-E that I got around to trying, "Eleven evil wizard schoolgirls in an archduke's library, dressed in red and black Asmodean schoolgirl uniforms, perched on armchairs and sofas" and none have drawn it well enough to use inside an online story."
+    Edwin Chen and Scott Alexander have <a href="https://www.surgehq.ai/blog/dall-e-vs-imagen-and-evaluating-astral-codex-tens-3000-ai-bet">discussed</a> the following:
+    <ul>
+    <li>A red cat sitting on top of a blue dog next to a purple lake, with a black pig flying in the sky</li>
+    <li>A stained glass picture of a woman in a library with a raven on her shoulder with a key in its mouth</li>
+    <li>An oil painting of a man in a factory looking at a cat wearing a top hat</li>
+    <li>A digital art picture of a child riding a llama with a bell on its tail through a desert</li>
+    <li>A 3D render of an astronaut in space holding a fox wearing lipstick</li>
+    <li>Pixel art of a farmer in a cathedral holding a red basketball</li>
+    </ul>
+
+    These test various constraints all at once, where it may be more useful to break these into smaller tests.
+    Object level mastery (ka table stakes): can it draw a variety of individual nouns and actions convincingly?
+    Object adjustments, color: Can the engine map colors to the correct objects? Can it draw objects with nonstandard colors?
+    Object adjustments, gerrunds: Can the engine map different actions to the component objects?
+    Compositional: Can it apply a style when one included in the prompt in natural language?
+    Grammar: Can it correctly apply the directionality of verbs and prepositions, can it distinguish subjects and direct objects?
+    Grammar: Can it do so when these are chained? ("an X on top of a Y that is beside a Z...")
+    Grammar: Can it handle "in" (or related prepositions) in relevant different senses, as a way to denote the overall setting, or as a way to denote how something should be held or placed?
+    Capacity: How many elements can you stack before it either breaks or begins to ignore some elements?
+    
+    These and ESY's seem to test many of these at once, and maybe are ultimately a test of capacity.
+
+    A proper test set could be generated along each of these lanes, with a body of sample nouns, verbs, and particles, with accompanying objective questions that any mturk could judge: "Is this cat wearing lipstick?"
+    <a href="https://sh-tsang.medium.com/review-imagenet-v2-5d2a6aa0a916">See also</a>
+    
 </body>
