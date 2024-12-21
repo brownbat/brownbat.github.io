@@ -34,6 +34,7 @@
 
       --history-bg: #333;
       --history-text: #f1f1f1;
+      --emphasis-color: #fff;
     }
 
     /* Solarized Dark variables */
@@ -51,6 +52,7 @@
       --button-hover: #657b83;   /* base00 */
       --button-active: #93a1a1;  /* base1 */
       --button-text: #fdf6e3;    /* base3 for better contrast */
+      --emphasis-color: #93a1a1; /* Solarized base1 */
 
       /*
         Change the "equals" ( = ) accent color to blue
@@ -208,6 +210,12 @@
       margin: 5px 0;
       padding: 0;
     }
+
+    .latest-history-entry {
+      font-weight: bold;
+      font-size: 1rem;   /* slightly larger than the 0.8rem default */
+      color: var(--emphasis-color);       /* optional: make it a bit brighter or more obvious */
+    }
   </style>
 </head>
 
@@ -292,6 +300,10 @@
     let currentInput = '';
     let operator = null;
     let storedValue = null;
+    let justCalculated = false;    // True right after pressing '='
+    let lastOperator = null;       // The operator used in the last calculation
+    let lastOperand = null;        // The second operand used in the last calculation
+
 
     // Update display
     function updateDisplay(value) {
@@ -333,10 +345,12 @@
     // Interpret input
     function handleInput(value) {
       switch (value) {
+        // Operators:
         case '+':
         case '-':
         case '*':
         case '/':
+          // If there's a current input, handle it normally
           if (currentInput) {
             // If there's already a stored value and operator, evaluate first
             if (storedValue !== null && operator !== null) {
@@ -344,25 +358,47 @@
             } else {
               storedValue = parseFloat(currentInput);
             }
-            operator = value;
-            currentInput = '';
           }
+          operator = value;
+          currentInput = '';
+          justCalculated = false; // Because we're about to do a new operation
           break;
 
+        // Equals:
         case '=':
-          if (storedValue !== null && operator !== null && currentInput) {
-            calculateResult();
+          if (justCalculated) {
+            // The user pressed '=' again *without* entering new digits
+            // => Repeat the last operation with lastOperand
+            if (lastOperator && lastOperand !== null && storedValue !== null) {
+              // We pretend we have an operator & input again
+              operator = lastOperator;
+              currentInput = String(lastOperand);
+              calculateResult(); // This re-uses lastOperator & lastOperand
+            }
+          } else {
+            // Normal behavior if we are not justCalculated
+            if (storedValue !== null && operator !== null && currentInput) {
+              calculateResult();
+            }
           }
           break;
 
-        case 'C': // Clear
+        // Clear:
+        case 'C':
           currentInput = '';
           storedValue = null;
           operator = null;
+          justCalculated = false;
           updateDisplay('');
           break;
 
+        // Decimal:
         case '.':
+          // If justCalculated, pressing '.' starts a fresh input
+          if (justCalculated) {
+            currentInput = '';
+            justCalculated = false;
+          }
           if (!currentInput.includes('.')) {
             currentInput += '.';
             updateDisplay(currentInput);
@@ -372,14 +408,22 @@
         default:
           // Digits (0-9)
           if (!isNaN(value)) {
+            // If we just finished a calculation and are pressing a digit,
+            // start fresh (discard the old result)
+            if (justCalculated) {
+              currentInput = '';
+              justCalculated = false;
+            }
             currentInput += value;
             updateDisplay(currentInput);
           }
       }
     }
 
+
     // Perform the calculation
     function calculateResult() {
+      // Convert currentInput to a number
       const currentValue = parseFloat(currentInput);
 
       let result;
@@ -396,6 +440,8 @@
         case '/':
           result = currentValue === 0 ? 'Error' : storedValue / currentValue;
           break;
+        default:
+          return;  // In case there's no valid operator
       }
 
       updateDisplay(result);
@@ -403,25 +449,49 @@
       if (result !== 'Error') {
         logToHistory(storedValue, operator, currentValue, result);
         storedValue = result;
-        // Keep the result in currentInput to allow chaining (e.g. +5 after pressing =)
         currentInput = String(result);
+
+        // Store the last operation so we can repeat it
+        lastOperator = operator;
+        lastOperand = currentValue;
       } else {
         storedValue = null;
         currentInput = '';
+        lastOperator = null;
+        lastOperand = null;
       }
+
       operator = null;
+      justCalculated = true;  // We have just finished a calculation
     }
 
+
     // Log the calculation in the history
+    let lastHistoryEntry = null;
+
     function logToHistory(lhs, op, rhs, res) {
       const historyLine = `${lhs} ${op} ${rhs} = ${res}`;
       const p = document.createElement('p');
       p.textContent = historyLine;
-      historyContainer.appendChild(p);
 
-      // Auto-scroll history to the bottom
-      historyContainer.scrollTop = historyContainer.scrollHeight;
+      // Remove highlight from the previously newest entry
+      if (lastHistoryEntry) {
+        lastHistoryEntry.classList.remove('latest-history-entry');
+      }
+
+      // Highlight this new entry
+      p.classList.add('latest-history-entry');
+
+      // Insert this new entry at the top
+      historyContainer.prepend(p);
+
+      // Update the reference so we know this is the newest
+      lastHistoryEntry = p;
+
+      // Optionally keep the scrollbar at the top
+      historyContainer.scrollTop = 0;
     }
+
   </script>
 </body>
 </html>
