@@ -1,50 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thomas Brownback</title>
 <style>
-div {
-    display: block;
-    margin-top: .3em;
-    margin-bottom: .3em;
-    margin-left: .5em;
-    margin-right: 0;
-    line-height: 1.3;
+body {
+    background-color: #20202C;
+    color: #C8DCFF;
+    font-family: monospace;
+    line-height: 1.5;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2.5em 1.25em;
 }
 h1 {
-    margin-left: 0em;
-    line-height: 0.1;
+    margin: 0 0 1em;
+}
+section {
+    margin-bottom: 1.75em;
+}
+section p {
+    margin: 0.35em 0;
 }
 a {
-    color:#aea;
+    color: #aea;
 }
-a:visited
-{
-color:#7ad
+a:visited {
+    color: #7ad;
 }
 </style>
+</head>
+<body>
 
-<body style="background-color:#20202C;color:#ACF;font-family:monospace;">
-<br>
 <h1>Thomas Brownback</h1>
-<div>
-My background is in law and computer science,<br>
-with interests in intellectual property, <br>
-trade, international relations,<br>
-computer security, and philosophy. 
-</div>
 
-<br>
-<b>A few things I like:</b><br>
+<section>
+<p>My background is in law and computer science,
+with interests in intellectual property,
+trade, international relations,
+computer security, and philosophy.</p>
+</section>
 
-<div>
+<section>
+<b>A few things I like:</b>
+<p>
 <a href="https://www.xkcd.com/863/">XKCD</a> by Randall Munroe<br>
 <a href="https://www.skobelevs.ie/BayesTheorem/">Interactive Bayes Simulator</a> by Nikita Skobelevs<br>
 <a href="https://apps.ankiweb.net/">Anki</a> by Damien Elmes<br>
 <a href="https://ethanschoonover.com/solarized/">Solarized</a> by Ethan Schoonover<br>
-
-<a href="https://letterboxd.com/film/the-killers/">Old</a> 
-<a href="https://letterboxd.com/film/dragon-inn/">genre</a> 
+<a href="https://letterboxd.com/film/the-killers/">Old</a>
+<a href="https://letterboxd.com/film/dragon-inn/">genre</a>
 <a href="https://letterboxd.com/film/once-upon-a-time-in-the-west/">films</a>
-</div>
+</p>
+</section>
 
 <!---
 https://letterboxd.com/film/night-of-the-demon/
@@ -52,27 +61,25 @@ https://letterboxd.com/film/m/
 https://www.goodreads.com/book/show/17841.Foucault_s_Pendulum
 --->
 
-<br><br>
-
-<b>Experiments and drafts:</b><br>
-
-<div>
-Training models at cipher identification for cryptanalysis (<a href="https://github.com/brownbat/cipher_classifier_factory">link</a>)<br>
+<section>
+<b>Experiments and drafts:</b>
+<p>Training models at cipher identification for cryptanalysis (<a href="https://github.com/brownbat/cipher_classifier_factory">link</a>)</p>
+<p>
     - In order to study the impact of hyperparameters, I expanded the system to automatically train suites of LSTM models in bulk, hundreds or thousands at a time, each with slightly different configurations,<br>
     - That created a new problem, how do I compare all these models to understand what settings had the most impact on performance<br>
-    - So I built a bespoke visualiztion tool to help quickly see and understand the exact impact of various changes to the training data and the hyperparameters<br>
-    - Cipher identification is a great problem for learning about model performance and tuning because labeled training data is trivial to generate <br>
-    - Early findings indicate LSTMs are often robust at distinguishing many classical ciphers with minimal training, though can struggle when learning to distinguish multiple categories all in one model <br>
-Decompositional analysis of random midjourney prompts(<a href="/20220909.html">link</a>)<br>
-The Internet and other unreliable oracles: Gettier problems in the disinformation age (<a href="/gettier-internet-oracle.pdf">link</a>)<br>
-Simple Dark Calculator (<a href="/dark-calc.html">link</a>)
-</div><br>
-    
-<b>Contact:</b><br> 
-<div>
-thomas.brownback <i>at</i> gmail<br>
-234.738.3689
-</div>
+    - So I built a bespoke visualization tool to help quickly see and understand the exact impact of various changes to the training data and the hyperparameters<br>
+    - Cipher identification is a great problem for learning about model performance and tuning because labeled training data is trivial to generate<br>
+    - Early findings indicate LSTMs are often robust at distinguishing many classical ciphers with minimal training, though can struggle when learning to distinguish multiple categories all in one model
+</p>
+<p>Decompositional analysis of random midjourney prompts (<a href="/20220909.html">link</a>)</p>
+<p>The Internet and other unreliable oracles: Gettier problems in the disinformation age (<a href="/gettier-internet-oracle.pdf">link</a>)</p>
+<p>Simple Dark Calculator (<a href="/dark-calc.html">link</a>)</p>
+</section>
+
+<section>
+<b>Contact:</b>
+<p>thomas.brownback <i>at</i> gmail</p>
+</section>
 
 </body>
 </html>
