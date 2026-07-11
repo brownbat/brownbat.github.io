@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Reverse-engineering a 5,441-layer neural network that implements MD5.">
+  <title>Reverse-engineering the Jane Street Tensor Puzzle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #20202c;
+      --surface: #17171f;
+      --text: #e7e9ef;
+      --muted: #b9bdc9;
+      --heading: #aaccff;
+      --link: #aaddaa;
+      --visited: #77aadd;
+      --rule: #55586a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--background);
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--background);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .site-header,
+    main {
+      width: min(880px, calc(100% - 32px));
+      margin-inline: auto;
+    }
+
+    .site-header {
+      padding: 24px 0 8px;
+      font-size: 0.95rem;
+    }
+
+    main {
+      padding: 16px 0 72px;
+    }
+
+    article > :first-child {
+      margin-top: 0;
+    }
+
+    h1,
+    h2 {
+      color: var(--heading);
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: 2.35rem;
+    }
+
+    h2 {
+      margin: 2.25rem 0 0.7rem;
+      padding-bottom: 0.2rem;
+      border-bottom: 1px solid var(--rule);
+      font-size: 1.35rem;
+    }
+
+    p,
+    ul,
+    ol,
+    blockquote,
+    pre,
+    table {
+      margin-top: 0.8rem;
+      margin-bottom: 0.8rem;
+    }
+
+    a {
+      color: var(--link);
+    }
+
+    a:visited {
+      color: var(--visited);
+    }
+
+    blockquote {
+      margin-left: 0;
+      padding: 0.1rem 0 0.1rem 1rem;
+      color: var(--muted);
+      border-left: 3px solid var(--rule);
+    }
+
+    code {
+      padding: 0.1em 0.25em;
+      color: #f2f3f7;
+      background: var(--surface);
+      border-radius: 3px;
+    }
+
+    pre {
+      max-width: 100%;
+      padding: 14px 16px;
+      overflow-x: auto;
+      background: var(--surface);
+      border: 1px solid #343644;
+      border-radius: 4px;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+    }
+
+    table {
+      display: block;
+      width: 100%;
+      overflow-x: auto;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 0.45rem 0.7rem;
+      border: 1px solid var(--rule);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 1.25rem 0;
+      border: 1px solid var(--rule);
+    }
+
+    li + li {
+      margin-top: 0.35rem;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        font-size: 15px;
+      }
+
+      .site-header,
+      main {
+        width: min(100% - 22px, 880px);
+      }
+
+      .site-header {
+        padding-top: 14px;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header"><a href="/">Thomas Brownback</a></header>
+  <main>
+    <article>
+<h1
+id="reverse-engineering-the-jane-street-tensor-puzzle">Reverse-engineering
+the Jane Street Tensor Puzzle</h1>
+<p><em>How I decompiled 5,000 layers, tried to solve the wrong problem,
+and found MD5 hiding in plain sight</em></p>
+<blockquote>
+<p><strong>Spoiler warning:</strong> This writeup gives strong hints
+about the winning input and describes the complete mechanism of the
+model from text input to final output.</p>
+</blockquote>
+<p>Jane Street's <a
+href="https://huggingface.co/spaces/jane-street/puzzle">tensor
+puzzle</a> provided a large pickled PyTorch model, a text box, and one
+hint: start with the last two layers. Every input produced
+<code>0</code>. It took some poking and prodding at the last part of the
+model to figure out that the goal was to find an input that produced
+<code>1</code>.</p>
+<p>The short solution is that the network computes a one-block MD5 hash
+and tests it against a fixed digest.</p>
+<p>The long solution involved more pain and suffering and a lot of dead
+ends and quitting for months at a time. I spent a substantial amount of
+time recovering local layer operations, searching for partial successes,
+and trying to run the entire network backward before recognizing the
+program those layers implemented. Those failed approaches each left me
+with some new understanding of the model that made it easier to verify
+once I had landed on the right hunch.</p>
+<h2 id="layer-numbering">Layer numbering</h2>
+<p>For analysis I converted the original pickle into a plain
+<code>Sequential</code> model so I could hook every leaf module. That
+artifact has 5,441 modules, numbered <code>L0</code> through
+<code>L5440</code>: 2,721 <code>Linear</code> layers alternating with
+2,720 <code>ReLU</code>s. It contains about 289 million parameters. The
+original model adds a final ReLU and also has a custom string-processing
+wrapper (which my conversion originally mangled adding a costly failure
+to reconcile against ground truth that plagued me until near the
+end).</p>
+<h2 id="starting-at-the-end">Starting at the end</h2>
+<p>Bypassing the original final ReLU exposed a much more informative raw
+output. Ordinary inputs did not all produce the same value of zero; they
+mostly scored <code>-15</code>. I brute forced the network using a
+million random keywords and found occasional <code>-14</code>,
+<code>-13</code>, or <code>-12</code> results. The final linear layer
+had a pretty noticeable form:</p>
+<pre class="text"><code>weights = [+1 repeated 16, -2 repeated 16, +1 repeated 16]
+bias    = -15</code></pre>
+<p>The preceding layer contained 48 values I saw as three chunks of 16.
+I began thinking of the 16 positions as independent tumblers in a lock.
+A score of <code>-14</code> meant that one tumbler had moved in the
+right direction; <code>-13</code> meant two, and a winning
+<code>+1</code> appeared to require all 16.</p>
+<p>I began looking for hints in the better scoring keywords that would
+offer some clue about how to unlock more tumblers. Maybe the first
+tumbler asked something about the length of the input, the second about
+what character was in the third place, could a tumbler ask what type of
+object the input was, or what part of speech? (It would turn out that
+no, it could not!)</p>
+<h2 id="one-million-attempts">One million attempts</h2>
+<p>I looked through my million generated strings to find patterns in
+which 16 positions fired. Of those trials, 61,391 lit at least one
+position, spread across 165 distinct subsets. It dropped sharply from
+there. No input matched more than three positions so I was still starved
+for data.</p>
+<p>There were no obvious patterns between entries with lower scores.
+This left me with a few questions:</p>
+<ol type="1">
+<li><p>Can I confirm nothing in one corner of the input ties tightly to
+one byte in the last layer? I knew about diffusion from cryptography,
+how much was the input diffusing throughout the network?</p></li>
+<li><p>Where are the improved scores coming from? What math is producing
+them?</p></li>
+</ol>
+<p>The observed counts were:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Matching positions</th>
+<th style="text-align: right;">Observed inputs</th>
+<th style="text-align: right;">Expected for 16 random byte
+comparisons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">938,609</td>
+<td style="text-align: right;">939,298</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">59,673</td>
+<td style="text-align: right;">58,936</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1,689</td>
+<td style="text-align: right;">1,733</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">31.7</td>
+</tr>
+<tr>
+<td style="text-align: right;">4 or more</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.4</td>
+</tr>
+</tbody>
+</table>
+<p>I implemented some toy gradient and evolutionary approaches to
+improve on the better results, but they were dead ends producing no
+meaningful improvement. (I mean they were bad, like, obviously flawed
+and produced junk theories and proposed inputs that were obviously
+wastes of time.)</p>
+<h2 id="building-a-layer-decompiler">Building a layer decompiler</h2>
+<p>I then attacked the model as a program expressed in
+<code>Linear</code> and <code>ReLU</code> layers. The basic workflow
+was:</p>
+<ol type="1">
+<li>Run a fixed suite of inputs and cache two adjacent activation
+layers.</li>
+<li>Guess how each output span depended on the previous layer.</li>
+<li>Use targeted mutations to distinguish correlation from
+causation.</li>
+<li>Record confirmed formulas and add reusable detectors.</li>
+<li>Repeat on the next unexplained span.</li>
+</ol>
+<p>I started out by doing this by hand. I'd see that often the network
+would simply transpose the prior layer's, say, positions 32-64, to the
+next layer's position 128-160. Often it would add some constant to each
+value in the prior "input" layer.</p>
+<p>I found these by hand at first then for 5440 layers realized I needed
+to automate the process.</p>
+<p>This grew into a collection of tools:</p>
+<ul>
+<li><p><code>compare_layers.py</code> rendered adjacent activations in a
+compact symbolic form, so I could visually scan for patterns and
+identify ops visually</p></li>
+<li><p><code>layer_guesser.py</code> recognized common transformations
+automatically, I would build operations into it and it would look at
+each layer and ask "for the unexplained parts of this layer, what if I
+ran all known operations against chunks of the previous layer, would
+that explain this?" Then it would adversarially test these against a
+growing test suite of keywords designed to generate weird results
+(including some using high unicode, some that were all spaces, some that
+were the alphabet in order, etc.)</p></li>
+</ul>
+<p>Eventually I wanted more precise confirmation. So:</p>
+<ul>
+<li><code>probe.py</code> mutated input neurons in the previous layer to
+discover exact dependencies. This let me discover some rules and
+relationships that would never be triggered by any input I would ever
+possibly guess.</li>
+</ul>
+<p>The recurring operations were not characteristic of a trained
+classifier. They were program primitives: copies, negations, decrements,
+<code>A+B-1</code>, <code>1-A-B</code>, multiplexers, bit
+rearrangements, byte unpacking, and weighted binary packing. Values
+repeatedly cycled through small alphabets such as
+<code>{-1, 0, 1, 2}</code>, with ReLU acting as a threshold between
+logic stages.</p>
+<p>By identifying classes of common constants my tests could more and
+more completely reconstruct the entire network. Eventually I had
+extracted what looked like a set of atomic ops, as if I had found the
+"instruction set" of the underlying chip.</p>
+<p>By this time I had noticed that the layer widths also repeated in
+highly regular patterns:</p>
+<p><img src="/20260711/layer_widths_example.png"
+alt="Repeated layer-width motifs" /></p>
+<p>From those two facts it felt clear that the cyclical patterns in the
+layer widths represented more complex operations and functions assembled
+from underlying operations.</p>
+<p>I also noticed:</p>
+<ul>
+<li>Message values were unpacked into bits in 32-bit groups.</li>
+<li>The raw input was copied from each layer into the next, preserving
+it in a sort of stack where four bytes would be "extracted" at a time
+for operations. The input survived through almost the entire network and
+disappeared at <code>L5326</code>.</li>
+<li>An apparent end marker contained <code>128</code> followed by a
+length-like value.</li>
+<li>Near the output, 192 bit-like values were repacked into 16
+integers.</li>
+</ul>
+<p>The disadvantage of this approach was scale. I became very good at
+explaining tiny windows, 4-10 layers, without identifying the standard
+algorithm that fed into.</p>
+<h2 id="trying-to-run-the-network-backward">Trying to run the network
+backward</h2>
+<p>Once the final layers were mapped, I tried to synthesize a winning
+internal state and propagate its requirements backward.</p>
+<p>The desired pre-ReLU comparator layer was clear:</p>
+<pre class="text"><code>L5438 = [-1 repeated 16, 0 repeated 16, +1 repeated 16]</code></pre>
+<p>I wrote a <code>rewind</code> engine for inverting known rules,
+followed by a SAT model for the underdetermined ReLUs and linear
+combinations. (I later read that one of the early winners, Alex, had
+tried something similar, which was reassuring since this ultimately
+ended in a humbling dead end).</p>
+<p>The constraint-construction succeeded (in a sense) and discovered
+millions of independent constraints.</p>
+<p>Constructing constraints is not the same as obtaining a valid
+input.</p>
+<p>In hindsight, it explored lots of relationships between arbitrary
+synthetic states that would never be reachable through any known input,
+adding immense complexity that prevented this from being viable.</p>
+<p>I went back and again tried to trace which early neurons had the
+biggest impact on late layer neurons. There was basically no signal to
+pull out, everything was perfectly diffuse, like a cryptographic
+hash.</p>
+<p>I even discussed the puzzle with someone else who was working in a
+small startup using AI. He was confident that you should be able to
+trace influential neurons and probabilistically zoom in on the right
+ones. I told him I'd given up on that, everything was too diffuse. He
+played with it for a few days and came back and said "yeah, I hoped to
+see how things propagate, but it really is a bit like a hash."</p>
+<p>But that stuck with me. It wasn't just "like" a hash. This was
+basically a hash function. Did they build one just for this puzzle? Did
+they invent one accidentally along the way?</p>
+<p>That seemed like a massive effort for a simple online puzzle.</p>
+<p>Maybe this was literally a hash?</p>
+<h2 id="looking-for-a-known-hash">Looking for a known hash</h2>
+<p>When I returned to the puzzle, the 16-byte target, bitwise logic,
+byte packing, and repeated layer-width motifs.... Instead of trying to
+assign semantic names to thousands more neurons, I built a signature
+search.</p>
+<p>I started looking at constants in a new way. When I traced them
+again, not as individual operations, but sequences near each other, I
+found something telling. In row 5410, I no longer saw a series of random
+AFFINE() transformations, I saw the addition of 0x98badcfe being copied
+in. A quick search revealed that was not random, it was the C register
+in the IV for MD5.</p>
+<p>We don't just resemble a hash function. WE ARE RUNNING MD5!</p>
+<p>That means we could find the other IV registers, A-D with a similar
+search. Confirmed.</p>
+<p>That means that there's a hard coded feature in the network near the
+end that runs an equality test against a target hash.</p>
+<p>That target hash is the hash of our answer.</p>
+<p>Examining constants in <code>L5437</code> produces:</p>
+<pre class="text"><code>c7ef65233c40aa32c2b9ace37595fa7c</code></pre>
+<h2 id="finding-the-phrase">Finding the phrase</h2>
+<p>At this point I just needed to crack a hash.</p>
+<p>For those who work in cybersecurity there are a few well known tools
+and methods to break MD5, one of them far quicker and less resource
+intensive than any other. It is the first tool you should reach for when
+you encounter any specific hard-coded string.</p>
+<p>I'll leave the tool as an exercise for the reader, but I did not have
+to break out John the Ripper or cyberchef, it was a bit faster than
+that.</p>
+<p>I had originally tried a brute force across pairs of random english
+words, after I had the confirmation from the hash I would have expanded
+that and burned a few more cycles on some local GPUs but otherwise would
+have eventually resolved it the same way.</p>
+<p>It is a bit frustrating to have discounted brute force search only to
+later realize it was the right track all along!</p>
+<p>But it was a rewarding (and sometimes punishing) puzzle. I learned a
+lot about neural nets simulating boolean operations and the barriers to
+interpretability in any sufficiently complex network.</p>
+<p>I feel like a hash algorithm was one of the examples used about
+inscrutability in the discussion of Eliciting Latent Knowledge. This was
+only tractable because brute force was possible. If the keyword were
+randomly selected from the possible input space then it would be faster
+to invent a novel attack to break MD5 completely.</p>
+<p>So here we are. Not just a fun toy puzzle, but a solvable puzzle
+illustrating how easy it would be to make an entire class of unsolvable
+puzzles. An amuse bouche for the limits of the interpretability and
+corrigibility of AI more generally.</p>
+<p>Good luck to us all!</p>
+    </article>
+  </main>
+</body>
+</html>
